@@ -42,11 +42,11 @@ def onReceive(packet, interface):
                 if is_dm:
                     # Send reply directly to the sender
                     logger.info(f"Sending reply: {response} to {sender}")
-                    interface.sendText(response, destinationId=sender)
+                    interface.sendText(response, destinationId=sender, wantAck=True)
                 else:
                     # Send reply to the group channel
                     logger.info(f"Sending reply: {response} to the group")
-                    interface.sendText(response)
+                    interface.sendText(response, wantAck=True)
             else:
                 logger.info(f"No valid command found in message: {msg}")
     except Exception as ex:
