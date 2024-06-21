@@ -20,11 +20,7 @@ class MeshBot:
         self.node_stats = NodeStats(self.db_path)
         self.chatbot = None
 
-    def snapshot_nodes(self, interface):
-        self.node_stats.snapshot_nodes(interface)
-
     def main(self):
-        # Setup logging
         logging.basicConfig(level=logging.INFO)
 
         # Connect to the Meshtastic device using TCP
@@ -43,7 +39,7 @@ class MeshBot:
 
         try:
             while True:
-                self.snapshot_nodes(interface)
+                self.node_stats.snapshot_nodes(interface)
                 time.sleep(30)
         except KeyboardInterrupt:
             logger.info("Exiting...")
@@ -76,7 +72,6 @@ class MeshBot:
                     logger.info(f"No valid command found in message: {msg}")
         except Exception as ex:
             logger.error(f"Error processing packet: {ex}")
-
 
 if __name__ == "__main__":
     bot = MeshBot()

@@ -15,6 +15,7 @@ class NodeSnapshot(Base):
     longitude = Column(Float)
     altitude = Column(Float)
     battery = Column(Float)
+    voltage = Column(Float)
     channel_util = Column(Float)
     tx_air_util = Column(Float)
     snr = Column(Float)
@@ -41,11 +42,12 @@ class NodeStats:
                     latest_snapshot.longitude != node_data['longitude'] or
                     latest_snapshot.altitude != node_data['altitude'] or
                     latest_snapshot.battery != node_data['battery'] or
+                    latest_snapshot.voltage != node_data['voltage']) or
                     latest_snapshot.channel_util != node_data['channel_util'] or
                     latest_snapshot.tx_air_util != node_data['tx_air_util'] or
                     latest_snapshot.snr != node_data['snr'] or
                     latest_snapshot.channel != node_data['channel'] or
-                    latest_snapshot.lastheard != node_data['lastheard'])
+                    latest_snapshot.lastheard != node_data['lastheard']
         return True
 
     def insert_node_data(self, session, node_data):
@@ -58,6 +60,7 @@ class NodeStats:
                 longitude=node_data['longitude'],
                 altitude=node_data['altitude'],
                 battery=node_data['battery'],
+                voltage=node_data['voltage'],
                 channel_util=node_data['channel_util'],
                 tx_air_util=node_data['tx_air_util'],
                 snr=node_data['snr'],
@@ -70,6 +73,7 @@ class NodeStats:
     def snapshot_nodes(self, interface):
         session = self.Session()
         for node in interface.nodes.values():
+            device_metrics = node.get('deviceMetrics', {})
             node_data = {
                 'node_id': node['num'],
                 'user': node['user'].get('longName', 'Unknown'),
@@ -77,9 +81,10 @@ class NodeStats:
                 'latitude': node.get('position', {}).get('latitude', None),
                 'longitude': node.get('position', {}).get('longitude', None),
                 'altitude': node.get('position', {}).get('altitude', None),
-                'battery': node.get('batteryLevel', None),
-                'channel_util': node.get('channelUtilization', None),
-                'tx_air_util': node.get('txAirUtilization', None),
+                'battery': device_metrics.get('batteryLevel', node.get('batteryLevel', None)),
+                'voltage': device_metrics.get('voltage', None),
+                'channel_util': device_metrics.get('channelUtilization', node.get('channelUtilization', None)),
+                'tx_air_util': device_metrics.get('airUtilTx', node.get('txAirUtilization', None)),
                 'snr': node.get('snr', None),
                 'channel': node.get('channel', None),
                 'lastheard': datetime.utcfromtimestamp(int(node.get("lastHeard", 0)))
