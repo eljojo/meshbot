@@ -42,12 +42,12 @@ class NodeStats:
                     latest_snapshot.longitude != node_data['longitude'] or
                     latest_snapshot.altitude != node_data['altitude'] or
                     latest_snapshot.battery != node_data['battery'] or
-                    latest_snapshot.voltage != node_data['voltage']) or
+                    latest_snapshot.voltage != node_data['voltage'] or
                     latest_snapshot.channel_util != node_data['channel_util'] or
                     latest_snapshot.tx_air_util != node_data['tx_air_util'] or
                     latest_snapshot.snr != node_data['snr'] or
                     latest_snapshot.channel != node_data['channel'] or
-                    latest_snapshot.lastheard != node_data['lastheard']
+                    latest_snapshot.lastheard != node_data['lastheard'])
         return True
 
     def insert_node_data(self, session, node_data):
