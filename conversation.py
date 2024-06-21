@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 
 class ChatBot:
-    def __init__(self, interface):
+    def __init__(self, interface, node_stats):
         self.interface = interface
+        self.node_stats = node_stats
 
     def generate_response(self, message, is_dm):
         command_prefix = "@nara"
@@ -18,17 +19,12 @@ class ChatBot:
         return None
 
     def summary(self):
-        node_count = len(self.interface.nodes.values())
+        node_count = self.node_stats.get_node_count()
         return f"There are currently {node_count} nodes known by the bot in the mesh."
 
     def nodes(self):
-        recent_nodes = []
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
-        for node in self.interface.nodes.values():
-            last_heard = int(node.get("lastHeard", 0))
-            last_heard_time = datetime.utcfromtimestamp(last_heard)
-            if last_heard_time >= one_hour_ago:
-                recent_nodes.append(node['user'].get('longName', 'Unknown'))
+        one_hour_ago = timedelta(hours=1)
+        recent_nodes = self.node_stats.get_recent_nodes(one_hour_ago)
         if recent_nodes:
             return f"{len(recent_nodes)} nodes have been seen in the last hour."
         else:

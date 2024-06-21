@@ -82,3 +82,16 @@ class NodeStats:
             }
             self.insert_node_data(session, node_data)
         session.close()
+
+    def get_node_count(self):
+        session = self.Session()
+        count = session.query(NodeSnapshot).distinct(NodeSnapshot.node_id).count()
+        session.close()
+        return count
+
+    def get_recent_nodes(self, time_delta):
+        session = self.Session()
+        recent_time = datetime.utcnow() - time_delta
+        recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.lastheard >= recent_time).all()
+        session.close()
+        return recent_nodes

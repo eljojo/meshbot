@@ -39,7 +39,7 @@ class MeshBot:
         pub.subscribe(self.onReceive, "meshtastic.receive")
 
         logger.info("Connected to Meshtastic server")
-        self.chatbot = ChatBot(interface)
+        self.chatbot = ChatBot(interface, self.node_stats)
 
         try:
             while True:
@@ -61,7 +61,7 @@ class MeshBot:
                 logger.info(f"Received message: {msg} from {sender}")
 
                 try:
-                    response = chatbot.generate_response(msg, is_dm)
+                    response = self.chatbot.generate_response(msg, is_dm)
                 except Exception as ex:
                     response = f"Problem with bot: {ex}"
 
