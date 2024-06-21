@@ -20,11 +20,12 @@ class NodeSnapshot(Base):
     tx_air_util = Column(Float)
     snr = Column(Float)
     channel = Column(String)
-    lastheard = Column(DateTime)
+    last_heard = Column(DateTime)
     timestamp = Column(DateTime, default=func.now())
 
     __table_args__ = (
         Index('idx_node_id', 'node_id'),
+        Index('idx_last_heard', 'last_heard'),
     )
 
 class NodeStats:
@@ -47,7 +48,7 @@ class NodeStats:
                     latest_snapshot.tx_air_util != node_data['tx_air_util'] or
                     latest_snapshot.snr != node_data['snr'] or
                     latest_snapshot.channel != node_data['channel'] or
-                    latest_snapshot.lastheard != node_data['lastheard'])
+                    latest_snapshot.last_heard != node_data['last_heard'])
         return True
 
     def insert_node_data(self, session, node_data):
@@ -65,7 +66,7 @@ class NodeStats:
                 tx_air_util=node_data['tx_air_util'],
                 snr=node_data['snr'],
                 channel=node_data['channel'],
-                lastheard=node_data['lastheard']
+                last_heard=node_data['last_heard']
             )
             session.add(new_snapshot)
             session.commit()
@@ -87,7 +88,7 @@ class NodeStats:
                 'tx_air_util': device_metrics.get('airUtilTx', node.get('txAirUtilization', None)),
                 'snr': node.get('snr', None),
                 'channel': node.get('channel', None),
-                'lastheard': datetime.utcfromtimestamp(int(node.get("lastHeard", 0)))
+                'last_heard': datetime.utcfromtimestamp(int(node.get("lastHeard", 0)))
             }
             self.insert_node_data(session, node_data)
         session.close()
@@ -101,6 +102,6 @@ class NodeStats:
     def get_recent_nodes(self, time_delta):
         session = self.Session()
         recent_time = datetime.utcnow() - time_delta
-        recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.lastheard >= recent_time).distinct(NodeSnapshot.node_id).all()
+        recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.last_heard >= recent_time).distinct(NodeSnapshot.node_id).all()
         session.close()
         return recent_nodes
