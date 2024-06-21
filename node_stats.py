@@ -8,7 +8,7 @@ Base = declarative_base()
 class NodeSnapshot(Base):
     __tablename__ = 'node_snapshots'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    node_id = Column(Integer, index=True)  # Adding an index to the node_id column
+    node_id = Column(Integer, index=True)
     user = Column(String)
     aka = Column(String)
     latitude = Column(Float)
@@ -105,3 +105,10 @@ class NodeStats:
         recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.last_heard >= recent_time).distinct(NodeSnapshot.node_id).all()
         session.close()
         return recent_nodes
+
+    def get_top_nodes_by_metric(self, metric, limit, time_filter):
+        session = self.Session()
+        recent_time = datetime.utcnow() - time_filter
+        top_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.last_heard >= recent_time).order_by(getattr(NodeSnapshot, metric).desc()).limit(limit).all()
+        session.close()
+        return top_nodes

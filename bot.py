@@ -69,19 +69,17 @@ class MeshBot:
                     logger.info(f"Received message: {msg} from {sender}")
 
                     try:
-                        response = self.chatbot.generate_response(msg, is_dm)
+                        responses = self.chatbot.generate_response(msg, is_dm)
                     except Exception as ex:
-                        response = f"Problem with bot: {ex}"
+                        responses = [f"Problem with bot: {ex}"]
 
-                    if response:
+                    for response in responses:
                         if is_dm:
                             logger.info(f"Sending reply: {response} to {sender}")
                             interface.sendText(response, destinationId=sender, wantAck=True)
                         else:
                             logger.info(f"Sending reply: {response} to the group")
                             interface.sendText(response, wantAck=True)
-                    else:
-                        logger.info(f"No valid command found in message: {msg}")
                 # else:
                     # logger.info(f"Received non-text packet: {d}")
                     # Here you can parse other types of packets, such as telemetry packets
