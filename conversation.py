@@ -49,12 +49,9 @@ class ChatBot:
         stats_responses = []
         unique_nodes = {}
 
-        highest_snr_nodes = self.node_stats.get_top_nodes_by_metric('snr', 1, time_filter)
         highest_channel_util_nodes = self.node_stats.get_top_nodes_by_metric('channel_util', 1, time_filter)
         highest_tx_air_util_nodes = self.node_stats.get_top_nodes_by_metric('tx_air_util', 1, time_filter)
 
-        for node in highest_snr_nodes:
-            stats_responses.append(f"Node {node.user}: SNR={node.snr}")
         for node in highest_channel_util_nodes:
             stats_responses.append(f"Node {node.user}: Channel Util={node.channel_util}")
         for node in highest_tx_air_util_nodes:
