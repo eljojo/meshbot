@@ -95,14 +95,34 @@ class NodeStats:
 
     def get_node_count(self):
         session = self.Session()
-        count = session.query(NodeSnapshot).distinct(NodeSnapshot.node_id).count()
+        count = session.query(func.count(func.distinct(NodeSnapshot.node_id))).scalar()
         session.close()
         return count
 
     def get_recent_nodes(self, time_delta):
         session = self.Session()
         recent_time = datetime.utcnow() - time_delta
-        recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.last_heard >= recent_time).distinct(NodeSnapshot.node_id).all()
+
+        subquery = (
+            session.query(
+                NodeSnapshot.node_id,
+                func.max(NodeSnapshot.timestamp).label('max_timestamp')
+            )
+            .group_by(NodeSnapshot.node_id)
+            .subquery()
+        )
+
+        recent_nodes = (
+            session.query(NodeSnapshot)
+            .join(
+                subquery,
+                (NodeSnapshot.node_id == subquery.c.node_id) &
+                (NodeSnapshot.timestamp == subquery.c.max_timestamp)
+            )
+            .filter(NodeSnapshot.last_heard >= recent_time)
+            .all()
+        )
+
         session.close()
         return recent_nodes
 
