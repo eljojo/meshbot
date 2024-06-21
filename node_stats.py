@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, func
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, func, Index
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 Base = declarative_base()
@@ -8,7 +8,7 @@ Base = declarative_base()
 class NodeSnapshot(Base):
     __tablename__ = 'node_snapshots'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    node_id = Column(String)
+    node_id = Column(Integer, index=True)  # Adding an index to the node_id column
     user = Column(String)
     aka = Column(String)
     latitude = Column(Float)
@@ -21,6 +21,10 @@ class NodeSnapshot(Base):
     channel = Column(String)
     lastheard = Column(DateTime)
     timestamp = Column(DateTime, default=func.now())
+
+    __table_args__ = (
+        Index('idx_node_id', 'node_id'),
+    )
 
 class NodeStats:
     def __init__(self, db_path):
@@ -92,6 +96,6 @@ class NodeStats:
     def get_recent_nodes(self, time_delta):
         session = self.Session()
         recent_time = datetime.utcnow() - time_delta
-        recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.lastheard >= recent_time).all()
+        recent_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.lastheard >= recent_time).distinct(NodeSnapshot.node_id).all()
         session.close()
         return recent_nodes
