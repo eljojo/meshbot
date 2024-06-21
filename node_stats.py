@@ -1,16 +1,28 @@
 import os
-from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, func, Index
-from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime, timedelta
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, func, ForeignKey, Index
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship, joinedload
 
 Base = declarative_base()
+
+class NodeInfo(Base):
+    __tablename__ = 'node_info'
+    node_id = Column(Integer, primary_key=True)
+    user = Column(String)
+    aka = Column(String)
+    last_heard = Column(DateTime)
+    hw_model = Column(String)
+
+    snapshots = relationship("NodeSnapshot", back_populates="node_info")
+
+    __table_args__ = (
+        Index('idx_last_heard', 'last_heard'),
+    )
 
 class NodeSnapshot(Base):
     __tablename__ = 'node_snapshots'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    node_id = Column(Integer, index=True)
-    user = Column(String)
-    aka = Column(String)
+    node_id = Column(Integer, ForeignKey('node_info.node_id'), index=True)
     latitude = Column(Float)
     longitude = Column(Float)
     altitude = Column(Float)
@@ -19,13 +31,13 @@ class NodeSnapshot(Base):
     channel_util = Column(Float)
     tx_air_util = Column(Float)
     snr = Column(Float)
-    channel = Column(String)
-    last_heard = Column(DateTime)
     timestamp = Column(DateTime, default=func.now())
 
+    node_info = relationship("NodeInfo", back_populates="snapshots")
+
     __table_args__ = (
-        Index('idx_node_id', 'node_id'),
-        Index('idx_last_heard', 'last_heard'),
+        Index('idx_node_id', 'node_id', 'timestamp'),
+        Index('idx_timestamp', 'timestamp'),
     )
 
 class NodeStats:
@@ -37,26 +49,39 @@ class NodeStats:
     def data_changed(self, session, node_data):
         latest_snapshot = session.query(NodeSnapshot).filter_by(node_id=node_data['node_id']).order_by(NodeSnapshot.timestamp.desc()).first()
         if latest_snapshot:
-            return (latest_snapshot.user != node_data['user'] or
-                    latest_snapshot.aka != node_data['aka'] or
-                    latest_snapshot.latitude != node_data['latitude'] or
+            return (latest_snapshot.latitude != node_data['latitude'] or
                     latest_snapshot.longitude != node_data['longitude'] or
                     latest_snapshot.altitude != node_data['altitude'] or
                     latest_snapshot.battery != node_data['battery'] or
                     latest_snapshot.voltage != node_data['voltage'] or
                     latest_snapshot.channel_util != node_data['channel_util'] or
                     latest_snapshot.tx_air_util != node_data['tx_air_util'] or
-                    latest_snapshot.snr != node_data['snr'] or
-                    latest_snapshot.channel != node_data['channel'] or
-                    latest_snapshot.last_heard != node_data['last_heard'])
+                    latest_snapshot.snr != node_data['snr'])
         return True
 
-    def insert_node_data(self, session, node_data):
-        if self.data_changed(session, node_data):
-            new_snapshot = NodeSnapshot(
+    def update_node_info(self, session, node_data):
+        node_info = session.query(NodeInfo).filter_by(node_id=node_data['node_id']).first()
+        if not node_info:
+            node_info = NodeInfo(
                 node_id=node_data['node_id'],
                 user=node_data['user'],
                 aka=node_data['aka'],
+                last_heard=node_data['last_heard'],
+                hw_model=node_data.get('hw_model', 'Unknown')
+            )
+            session.add(node_info)
+        else:
+            node_info.user = node_data['user']
+            node_info.aka = node_data['aka']
+            node_info.last_heard = node_data['last_heard']
+            node_info.hw_model = node_data.get('hw_model', 'Unknown')
+            session.commit()
+
+    def insert_node_data(self, session, node_data):
+        self.update_node_info(session, node_data)
+        if self.data_changed(session, node_data):
+            new_snapshot = NodeSnapshot(
+                node_id=node_data['node_id'],
                 latitude=node_data['latitude'],
                 longitude=node_data['longitude'],
                 altitude=node_data['altitude'],
@@ -64,9 +89,7 @@ class NodeStats:
                 voltage=node_data['voltage'],
                 channel_util=node_data['channel_util'],
                 tx_air_util=node_data['tx_air_util'],
-                snr=node_data['snr'],
-                channel=node_data['channel'],
-                last_heard=node_data['last_heard']
+                snr=node_data['snr']
             )
             session.add(new_snapshot)
             session.commit()
@@ -87,15 +110,15 @@ class NodeStats:
                 'channel_util': device_metrics.get('channelUtilization', node.get('channelUtilization', None)),
                 'tx_air_util': device_metrics.get('airUtilTx', node.get('txAirUtilization', None)),
                 'snr': node.get('snr', None),
-                'channel': node.get('channel', None),
-                'last_heard': datetime.utcfromtimestamp(int(node.get("lastHeard", 0)))
+                'last_heard': datetime.utcfromtimestamp(int(node.get("lastHeard", 0))),
+                'hw_model': node.get('hwModel', 'Unknown')
             }
             self.insert_node_data(session, node_data)
         session.close()
 
     def get_node_count(self):
         session = self.Session()
-        count = session.query(func.count(func.distinct(NodeSnapshot.node_id))).scalar()
+        count = session.query(func.count(func.distinct(NodeInfo.node_id))).scalar()
         session.close()
         return count
 
@@ -103,23 +126,9 @@ class NodeStats:
         session = self.Session()
         recent_time = datetime.utcnow() - time_delta
 
-        subquery = (
-            session.query(
-                NodeSnapshot.node_id,
-                func.max(NodeSnapshot.timestamp).label('max_timestamp')
-            )
-            .group_by(NodeSnapshot.node_id)
-            .subquery()
-        )
-
         recent_nodes = (
-            session.query(NodeSnapshot)
-            .join(
-                subquery,
-                (NodeSnapshot.node_id == subquery.c.node_id) &
-                (NodeSnapshot.timestamp == subquery.c.max_timestamp)
-            )
-            .filter(NodeSnapshot.last_heard >= recent_time)
+            session.query(NodeInfo)
+            .filter(NodeInfo.last_heard >= recent_time)
             .all()
         )
 
@@ -129,6 +138,13 @@ class NodeStats:
     def get_top_nodes_by_metric(self, metric, limit, time_filter):
         session = self.Session()
         recent_time = datetime.utcnow() - time_filter
-        top_nodes = session.query(NodeSnapshot).filter(NodeSnapshot.last_heard >= recent_time).order_by(getattr(NodeSnapshot, metric).desc()).limit(limit).all()
+        top_nodes = (
+            session.query(NodeSnapshot)
+            .filter(NodeSnapshot.timestamp >= recent_time)
+            .options(joinedload(NodeSnapshot.node_info))
+            .order_by(getattr(NodeSnapshot, metric).desc())
+            .limit(limit)
+            .all()
+        )
         session.close()
         return top_nodes
